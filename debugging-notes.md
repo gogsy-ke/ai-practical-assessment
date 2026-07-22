@@ -386,3 +386,104 @@ quietly — after `Number(true) === 1` in issue 2, and `null` slipping past a
 default parameter in issue 5. That is a pattern rather than three
 coincidences, and it is the thing I would look for first on the next
 JavaScript project.
+
+---
+
+## Issue 7 — "Request failed with status 500" when the API is not running
+
+### Problem
+
+Reported while following the README: the page loaded and showed
+
+```
+Request failed with status 500
+```
+
+That message says nothing. It does not say what failed, and it points at the
+server as if the server were broken.
+
+### How I investigated
+
+The wording was the clue. `Request failed with status ${response.status}` is
+the *fallback* branch in `web/src/api.js` — the one used when the error body
+is not the API's JSON shape. So the response did not come from the API, since
+the API always sends `{ error: { code, message, field } }`.
+
+Started the frontend with the backend deliberately down and looked at what the
+proxy returns:
+
+```
+$ curl -i localhost:5173/api/users
+HTTP/1.1 500 Internal Server Error
+Content-Type: text/plain
+Transfer-Encoding: chunked
+```
+
+Vite's proxy answers 500 with an empty `text/plain` body when it cannot reach
+the target.
+
+### The actual cause
+
+`api.js` already had a message for exactly this situation:
+
+```js
+} catch {
+  throw new ApiError({ code: 'NETWORK_ERROR',
+    message: 'Cannot reach the server. Is the API running on port 3001?' });
+}
+```
+
+**It could never fire in development.** That `catch` only runs when `fetch`
+itself fails, which happens when nothing answers at all. Through the Vite
+proxy something *does* answer — the proxy responds 500 — so `fetch` resolves
+normally, the catch is skipped, the body fails to parse as the API's shape,
+and the useless fallback is used instead.
+
+The one case the message was written for was the one case it could not reach.
+
+### Final fix
+
+Treat a 5xx with no API error body as unreachable, since the API always sends
+one:
+
+```js
+if (parsed?.error) throw new ApiError(parsed.error, response.status);
+
+if (response.status >= 500) {
+  throw new ApiError({ code: 'NETWORK_ERROR', message: UNREACHABLE }, response.status);
+}
+```
+
+Both routes now share one constant, so they cannot drift.
+
+### What I validated
+
+Ran it both ways rather than only the fixed one:
+
+| State | Message |
+|-------|---------|
+| API down | `Cannot reach the API server. Start it with: npm run dev:api` |
+| API up | 6 ticket rows render |
+
+Also changed the wording. The old message asked "Is the API running on port
+3001?" — a question the user then has to work out how to answer. The new one
+gives the command.
+
+### What I took from it
+
+This is the same shape as issue 4 and the search-wildcard gap in prompt 12:
+**code that handles the case it was written for, and misses the route the case
+actually arrives by.** The error handling was there, it was correct, and it sat
+on a path that never executed.
+
+It also would not have been caught by any test I wrote. Every test calls
+`createApp()` directly with no proxy in between, so the dev proxy's behaviour
+is invisible to the whole suite. It took someone running the app the ordinary
+way — starting only one of the two servers, which is the easiest mistake to
+make with this setup.
+
+### Follow-up worth noting
+
+The README already documents this under "If something goes wrong", added in
+prompt 18. Documentation was not enough — the error message itself had to say
+it, because that is where the user is looking when it happens.
