@@ -266,3 +266,94 @@ The 409 body reads:
 A ticket created through the API came back with **id 7**, not id 1. That is
 the `sqlite_sequence` fix from prompt 8 holding up in the real request path,
 not just in the seed script.
+
+## 4. Validation and error handling
+
+**Prompt**
+Add backend validation and error handling across all endpoints. Cover every
+case in the edge case list in requirements-analysis.md: empty and
+whitespace-only titles, the length limit, a priority outside the allowed list,
+an assignee id that does not exist, and an empty comment message. All errors
+come back in the shape defined in the contract. A missing ticket returns 404,
+not 500.
+
+**AI response (summary)**
+`src/validation.js` with `requiredText`, `optionalText`, `validatePriority`,
+`requiredId` and `optionalId`, wired into create and update. 27 new tests.
+
+**Result**
+
+```
+Test Files  3 passed (3)
+     Tests  98 passed (98)
+```
+
+**What I accepted**
+
+Each validator returning the cleaned value rather than just approving it. It
+removes a whole class of mistake: a caller cannot validate a trimmed string
+and then store the untrimmed one, because the trimmed string is the only thing
+it gets back.
+
+Validating every field before writing any of them. A request with a good title
+and a bad priority now changes nothing. Applying the good field first and then
+failing would leave the ticket half updated. There is a test for this.
+
+**What I changed**
+
+Update originally had its own copy of the field rules. I replaced it with a map
+of field name to validator, shared with create. Two copies of the same rules
+drift the moment one is edited, and there is nothing to make the drift
+visible.
+
+**A bug my own test found**
+
+The first `requiredId` was:
+
+```js
+if (!Number.isInteger(Number(value)) || Number(value) <= 0) throw ...
+```
+
+`Number(true)` is `1`. A ticket created with `createdBy: true` was accepted
+and attributed to user 1, a real person in the seed data.
+
+Four of the five bad types in my test were rejected. `true` was not. The check
+was correct about the value and never looked at the type.
+
+Worth being precise about the credit here. The guard was AI-written and looked
+careful — it checks for an integer and for a positive number, which is more
+than most hand-written versions do. AI also wrote most of the list of bad
+inputs to test. I added `true` and `[]` to that list, because booleans and
+empty arrays are the values that behave oddly under coercion in JavaScript.
+That addition is what found it.
+
+Full write-up in debugging-notes.md, issue 2.
+
+**A wrong comment I wrote and then checked**
+
+I left a comment on `requiredId` saying that a bad type "makes the driver
+throw, which would surface as a 500". I had assumed that rather than checking.
+
+Binding each type directly showed `undefined`, `'abc'` and `1.5` all bind
+without complaint and simply match no row. Only an object throws. So the guard
+prevents a 500 in one case out of four, not all of them.
+
+The guard still earns its place, but for a different reason than the comment
+claimed: without it the error says "user does not exist" when the real problem
+is a wrong type. I rewrote the comment to say that.
+
+Recorded because an unchecked claim in a comment is worse than no comment. The
+next person reading it has no reason to doubt it. Checking took two minutes.
+
+**What I rejected**
+
+A suggestion to bring in Zod or Joi for schema validation. There are six
+fields and the rules fit in one small file with no dependency. A schema
+library earns its place when there are many shapes to validate or the schema
+is shared with the frontend, and neither is true here. Noted in
+reflection.md as something that would change if the API grew.
+
+A suggestion to return every validation error at once as an array. The API
+contract defines a single `field` on the error object, and the UI shows one
+message at a time. Returning a list would mean changing the contract and the
+error handler to solve a problem the frontend does not have.

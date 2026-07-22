@@ -11,6 +11,14 @@ import {
   transitionErrorMessage,
 } from '../stateMachine.js';
 import { notFound, validationError, invalidTransition } from '../errors.js';
+import {
+  requiredText,
+  optionalText,
+  validatePriority,
+  requiredId,
+  optionalId,
+  LIMITS,
+} from '../validation.js';
 
 const now = () => new Date().toISOString();
 
@@ -57,7 +65,16 @@ export function getTicket(id) {
   return { ...ticket, allowedTransitions: allowedTransitions(ticket.status), comments };
 }
 
-export function createTicket({ title, description, priority, assignedTo, createdBy }) {
+export function createTicket(input = {}) {
+  // Shape and type first, then existence. A bad type would otherwise reach the
+  // database driver, which throws in a way that surfaces as a 500 rather than
+  // as the 400 this really is.
+  const title = requiredText(input.title, 'title', LIMITS.title);
+  const description = optionalText(input.description, 'description', LIMITS.description);
+  const priority = validatePriority(input.priority);
+  const assignedTo = optionalId(input.assignedTo, 'assignedTo');
+  const createdBy = requiredId(input.createdBy, 'createdBy');
+
   if (assignedTo != null && !userExists(assignedTo)) {
     throw validationError('Assigned user does not exist', 'assignedTo');
   }
@@ -74,14 +91,22 @@ export function createTicket({ title, description, priority, assignedTo, created
          (title, description, priority, status, assignedTo, createdBy, createdAt, updatedAt)
        VALUES (?, ?, ?, 'Open', ?, ?, ?, ?)`,
     )
-    .run(title, description ?? null, priority ?? 'Medium', assignedTo ?? null, createdBy, timestamp, timestamp);
+    .run(title, description, priority, assignedTo, createdBy, timestamp, timestamp);
 
   return getTicket(result.lastInsertRowid);
 }
 
-const UPDATABLE = ['title', 'description', 'priority', 'assignedTo'];
+// Each updatable field with the rule that cleans it. Keeping them in one map
+// means an update runs exactly the same checks as a create — there is no
+// second copy of the rules to fall out of step.
+const UPDATABLE = {
+  title: (v) => requiredText(v, 'title', LIMITS.title),
+  description: (v) => optionalText(v, 'description', LIMITS.description),
+  priority: (v) => validatePriority(v),
+  assignedTo: (v) => optionalId(v, 'assignedTo'),
+};
 
-export function updateTicket(id, changes) {
+export function updateTicket(id, changes = {}) {
   if (!findTicket(id)) throw notFound('Ticket');
 
   // Rejected rather than ignored. A client that thinks it changed the status
@@ -90,15 +115,22 @@ export function updateTicket(id, changes) {
     throw validationError('Status cannot be changed here. Use /status', 'status');
   }
 
-  const fields = UPDATABLE.filter((f) => f in changes);
+  const fields = Object.keys(UPDATABLE).filter((f) => f in changes);
   if (fields.length === 0) throw validationError('No fields to update');
 
-  if (fields.includes('assignedTo') && changes.assignedTo != null && !userExists(changes.assignedTo)) {
+  // Validate everything before writing anything, so a request with one bad
+  // field does not leave the other fields half applied.
+  const cleaned = {};
+  for (const field of fields) {
+    cleaned[field] = UPDATABLE[field](changes[field]);
+  }
+
+  if (cleaned.assignedTo != null && !userExists(cleaned.assignedTo)) {
     throw validationError('Assigned user does not exist', 'assignedTo');
   }
 
   const assignments = fields.map((f) => `${f} = ?`).join(', ');
-  const values = fields.map((f) => changes[f]);
+  const values = fields.map((f) => cleaned[f]);
 
   db.prepare(`UPDATE tickets SET ${assignments}, updatedAt = ? WHERE id = ?`)
     .run(...values, now(), id);
