@@ -103,6 +103,42 @@ and [test-results.md](test-results.md).
 
 ---
 
+## If something goes wrong
+
+Each of these came out of walking through this README on a clean clone.
+
+**`Port 3001 is already in use`**
+Another copy of the API is running. Stop it, or use a different port:
+```bash
+PORT=3002 npm run dev:api
+```
+If you change it, update the proxy target in `web/vite.config.js`.
+
+**`Port 5173 is in use, trying another one...`**
+Vite picks the next free port on its own and prints it. Open the URL it prints,
+not 5173.
+
+**The page loads but says "Cannot reach the server"**
+The API is not running. It needs its own terminal — see
+[Running it](#running-it).
+
+**`npm install` fails building `better-sqlite3`**
+No prebuilt binary matched your platform, so it tried to compile. Install a
+C++ toolchain (`build-essential` on Debian/Ubuntu, `xcode-select --install` on
+macOS) and run `npm install` again.
+
+**Tests fail but the app works**
+Check the Node version with `node --version`. Anything below 18 will fail on
+syntax used here.
+
+**Data looks wrong or you want a clean slate**
+```bash
+npm run db:setup
+```
+Drops and rebuilds every table from the seed data. Safe to run any time.
+
+---
+
 ## What it does
 
 | Feature | Notes |
