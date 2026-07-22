@@ -1,0 +1,48 @@
+# Tasks
+
+Ticked when the work is done and checked, not when the code is written.
+
+## Planning
+- [x] Requirement analysis with assumptions and open questions
+- [x] Acceptance criteria
+- [x] Project context and spec
+
+## Design
+- [x] Data model
+- [x] State machine design, options compared
+- [x] API contract
+
+## Backend
+- [ ] SQLite schema script
+- [ ] Seed data: 4 users, 6 tickets across all statuses, comments on two
+- [ ] State machine module
+- [ ] State machine tests, seen failing before they pass
+- [ ] Ticket endpoints
+- [ ] Status endpoint
+- [ ] Comment endpoint
+- [ ] Search and status filter
+- [ ] Validation on every input
+- [ ] Shared error handler
+
+## Frontend
+- [ ] API client with error translation
+- [ ] Ticket list with search and filter
+- [ ] Create form
+- [ ] Detail view with comments
+- [ ] Status controls limited to allowed transitions
+- [ ] Loading, empty and error states
+
+## Verify
+- [ ] Full test run passing
+- [ ] Clean machine setup test: delete node_modules and the db file, run README
+- [ ] Restart test: confirm data survives
+- [ ] Code review pass
+- [ ] Fixes from review
+
+## Documents finished last
+- [ ] test-strategy.md and test-results.md
+- [ ] debugging-notes.md, written as bugs happen
+- [ ] code-review-notes.md and review-fixes.md
+- [ ] README.md
+- [ ] tool-workflow.md
+- [ ] reflection.md, pr-description.md, final-ai-usage-summary.md
