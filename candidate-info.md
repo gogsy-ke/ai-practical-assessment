@@ -1,7 +1,7 @@
 # Candidate Information
 
 Name: Gurpreet Singh
-Role: <!-- fill in: SE / SSE / TL -->
+Role: Senior Software Engineer
 Primary Technology Stack: JavaScript (Node.js, React)
 Primary AI Tool Used: Claude (Claude Code)
 Project Option Selected: Support Ticket Management System (Backend-heavy)
