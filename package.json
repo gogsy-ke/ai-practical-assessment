@@ -1,0 +1,20 @@
+{
+  "name": "support-ticket-system",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Support ticket management system with an enforced status state machine",
+  "scripts": {
+    "db:setup": "node src/db-setup.js",
+    "start": "node src/server.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.5.0",
+    "express": "^4.21.1"
+  },
+  "devDependencies": {
+    "supertest": "^7.0.0",
+    "vitest": "^2.1.5"
+  }
+}
