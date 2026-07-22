@@ -589,3 +589,76 @@ assuming it worked because the build passed:
 
 A clean build only proves the code parses. It says nothing about whether
 anything appears on screen.
+
+## 8. Ticket detail view
+
+**Prompt**
+Build the ticket detail view: fields, edit, reassign, comments, and the status
+controls. Only show buttons for transitions the backend says are allowed,
+using `allowedTransitions` from the detail response rather than a copy of the
+rule in the frontend. If the backend still rejects a change, show its message.
+
+**AI response (summary)**
+`TicketDetail.jsx` with view and edit modes, status buttons built from
+`allowedTransitions`, and `CommentSection.jsx` for the comment list and form.
+
+**What I accepted**
+
+Building the status buttons by mapping over `allowedTransitions`. The frontend
+has no opinion at all about which moves are legal, so it cannot disagree with
+the backend. When a ticket reaches a final status the array is empty, the
+buttons disappear on their own, and no separate check for "is this Closed" is
+needed anywhere in the UI.
+
+Reloading the ticket after every action instead of merging the response into
+local state. `updatedAt` and `allowedTransitions` both change with the status,
+and merging by hand means remembering to update each one. Reloading cannot
+forget.
+
+**What I added that was not suggested**
+
+Two separate error states. The first version used one `error` variable for
+both the initial load and any later action. That means a rejected status
+change replaces the whole ticket with an error screen, and the user loses the
+page they were looking at because they pressed a button that was not allowed.
+
+Now a load failure replaces the view, because there is nothing to show. An
+action failure shows a message above a page that still works, which is what
+the prompt asked for when it said to show the backend's message.
+
+**What I rejected**
+
+A suggestion to disable status buttons while the ticket is being edited. There
+is no rule against changing status mid-edit, and adding one means inventing a
+constraint the backend does not have. The two are independent.
+
+A confirmation dialog before cancelling a ticket. Cancelling is reversible in
+the sense that nothing is deleted, and the brief has no requirement for it. It
+would be a component and a state variable for a rule nobody asked for.
+
+**What I verified**
+
+Drove the running app in headless Chrome over the DevTools protocol, clicking
+through the real UI rather than reading the code and assuming:
+
+| Step | Result |
+|------|--------|
+| List renders | 6 rows |
+| Click a ticket | Detail view opens with the right title |
+| Buttons on an Open ticket | `Move to In Progress`, `Move to Cancelled` |
+| After moving to In Progress | Buttons become `Move to Resolved`, `Move to Cancelled` |
+| Add a comment | Appears with the author's name and timestamp |
+| Walk to Closed | 0 move buttons, "This ticket is Closed. No further status changes are possible." |
+
+The fourth row is the one worth pointing at. The buttons re-derive themselves
+from the response after every change, so the UI follows the state machine
+without holding a copy of it.
+
+**Known limitation**
+
+There is no URL routing, so a ticket cannot be linked to or bookmarked, and
+the browser back button leaves the app instead of returning to the list. That
+is the cost of the decision in prompt 6 to skip React Router. It is the right
+trade for two views, and it is the first thing that would have to change if a
+third view were added. Recorded in reflection.md rather than left for a
+reviewer to find.

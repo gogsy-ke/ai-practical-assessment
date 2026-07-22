@@ -25,12 +25,12 @@ Ticked when the work is done and checked, not when the code is written.
 - [x] Shared error handler
 
 ## Frontend
-- [ ] API client with error translation
-- [ ] Ticket list with search and filter
-- [ ] Create form
-- [ ] Detail view with comments
-- [ ] Status controls limited to allowed transitions
-- [ ] Loading, empty and error states
+- [x] API client with error translation
+- [x] Ticket list with search and filter
+- [x] Create form
+- [x] Detail view with comments
+- [x] Status controls limited to allowed transitions
+- [x] Loading, empty and error states
 
 ## Verify
 - [ ] Full test run passing

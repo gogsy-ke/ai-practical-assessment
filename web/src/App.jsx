@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from './api.js';
 import TicketList from './components/TicketList.jsx';
+import TicketDetail from './components/TicketDetail.jsx';
 import CreateTicketForm from './components/CreateTicketForm.jsx';
 
 // There is no authentication — that is a Stretch item and was left out on
@@ -14,6 +15,9 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   const [creating, setCreating] = useState(false);
+  // Which view is showing. Null means the list. This is the whole of the
+  // navigation, which is why there is no router.
+  const [openTicketId, setOpenTicketId] = useState(null);
   // Bumped after a change, so the list refetches instead of being patched
   // by hand. One source of truth for what is on screen: the server.
   const [reloadKey, setReloadKey] = useState(0);
@@ -62,25 +66,40 @@ export default function App() {
       </header>
 
       <main>
-        <div className="toolbar">
-          <button className="primary" onClick={() => setCreating(true)} disabled={creating}>
-            New ticket
-          </button>
-        </div>
-
-        {creating && (
-          <CreateTicketForm
+        {openTicketId ? (
+          <TicketDetail
+            ticketId={openTicketId}
             users={users}
             currentUserId={currentUserId}
-            onCancel={() => setCreating(false)}
-            onCreated={() => {
-              setCreating(false);
-              setReloadKey((n) => n + 1);
-            }}
+            onBack={() => setOpenTicketId(null)}
+            // The list is stale once a ticket changes, so it refetches when
+            // the user goes back.
+            onChanged={() => setReloadKey((n) => n + 1)}
           />
-        )}
+        ) : (
+          <>
+            <div className="toolbar">
+              <button className="primary" onClick={() => setCreating(true)} disabled={creating}>
+                New ticket
+              </button>
+            </div>
 
-        <TicketList reloadKey={reloadKey} onOpen={(id) => console.log('open', id)} />
+            {creating && (
+              <CreateTicketForm
+                users={users}
+                currentUserId={currentUserId}
+                onCancel={() => setCreating(false)}
+                onCreated={(ticket) => {
+                  setCreating(false);
+                  setReloadKey((n) => n + 1);
+                  setOpenTicketId(ticket.id);
+                }}
+              />
+            )}
+
+            <TicketList reloadKey={reloadKey} onOpen={setOpenTicketId} />
+          </>
+        )}
       </main>
     </div>
   );
