@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from './api.js';
+import TicketList from './components/TicketList.jsx';
+import CreateTicketForm from './components/CreateTicketForm.jsx';
 
 // There is no authentication — that is a Stretch item and was left out on
 // purpose. The API still needs to know who is acting, so the user is picked
@@ -10,6 +12,11 @@ export default function App() {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const [creating, setCreating] = useState(false);
+  // Bumped after a change, so the list refetches instead of being patched
+  // by hand. One source of truth for what is on screen: the server.
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     api
@@ -55,7 +62,25 @@ export default function App() {
       </header>
 
       <main>
-        <p className="state">Ticket list is built in the next step.</p>
+        <div className="toolbar">
+          <button className="primary" onClick={() => setCreating(true)} disabled={creating}>
+            New ticket
+          </button>
+        </div>
+
+        {creating && (
+          <CreateTicketForm
+            users={users}
+            currentUserId={currentUserId}
+            onCancel={() => setCreating(false)}
+            onCreated={() => {
+              setCreating(false);
+              setReloadKey((n) => n + 1);
+            }}
+          />
+        )}
+
+        <TicketList reloadKey={reloadKey} onOpen={(id) => console.log('open', id)} />
       </main>
     </div>
   );

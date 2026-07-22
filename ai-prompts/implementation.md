@@ -507,3 +507,85 @@ was wired up:
 The third one mattered most. If the proxy had mangled error responses, every
 error message in the UI would have been wrong while the happy path looked
 fine.
+
+## 7. Ticket list, search and create form
+
+**Prompt**
+Build the ticket list with the search box and status filter, and the create
+form. Include loading and empty states. If a search returns nothing that is an
+empty list, not an error. If a request fails, the screen must not be left
+stuck on a loading spinner.
+
+**AI response (summary)**
+`TicketList.jsx` with the search box, status filter and table, and
+`CreateTicketForm.jsx`. Loading, error and empty states handled.
+
+**What I accepted**
+
+Clearing `loading` in `finally` rather than in the success path. This is the
+specific thing the prompt asked about. Setting `loading` to false only after a
+successful response leaves a failed request showing a spinner forever, and the
+user has no way to tell a slow request from a dead one.
+
+Refetching the list after a create instead of pushing the new ticket into the
+array by hand. The server stays the only source of truth for what is on
+screen, so the list cannot drift from the database.
+
+**What I added that was not suggested**
+
+*Two different empty states.* The generated version showed one message for
+both. "No tickets yet, create the first one" is wrong when the database is
+full and the user has simply typed a search that matches nothing — it sends
+them looking for the wrong problem. The filtered case now says no tickets
+match and offers a button to clear the filters.
+
+*Debouncing the search box.* Without it, typing "printer" sends seven requests
+and the list flickers through seven results on the way.
+
+*Throwing away superseded responses.* This is the one I would not have thought
+of before adding the debounce. Requests can come back out of order, so a slow
+response for "pri" can land after a fast one for "printer" and overwrite newer
+results with older ones. The effect sets a flag and its cleanup clears it, so
+a superseded request discards its own answer.
+
+**A bug I found by reading my own code**
+
+The retry button was written as:
+
+```jsx
+<button onClick={() => setStatus((s) => s)}>Retry</button>
+```
+
+The intent is to re-trigger the effect by touching a dependency. It does not
+work. React bails out of a state update when the new value is identical to the
+current one, so no re-render happens, the effect does not run, and the button
+does nothing at all.
+
+It would have looked fine in review. There is no error, the button renders,
+and the code reads like it re-runs the fetch. Replaced with a counter that
+increments, which always produces a new value.
+
+**What I rejected**
+
+A suggestion to keep a `filteredTickets` array in state, derived from the full
+list. The backend already does the filtering, and it has tests. Filtering
+again in the browser would mean two implementations of the same rule, and the
+one in the browser would be the one nobody tested.
+
+A loading spinner component with an animation. `Loading tickets…` as text does
+the same job. A spinner is a new component and some CSS to say one word.
+
+**What I verified**
+
+Rendered the running app in headless Chrome and read the DOM, rather than
+assuming it worked because the build passed:
+
+| Check | Result |
+|-------|--------|
+| Tickets render | All 6 present |
+| Status badges | Correct class per status |
+| Order | Newest first |
+| Console errors | None |
+
+A clean build only proves the code parses. It says nothing about whether
+anything appears on screen.
