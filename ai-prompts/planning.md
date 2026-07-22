@@ -2,26 +2,7 @@
 
 Tool: Claude Code.
 
-## 1. Understanding the assessment brief
-
-**Prompt (summary)**
-Shared the full assessment document and asked for a plain summary of what the
-task actually requires.
-
-**AI response (summary)**
-Broke it into three parts: the app itself, the lifecycle documents, and the
-prompt history. Pointed out that the app is scoped at 8-12 hours and that the
-documents carry most of the weight, so the app should stay small.
-
-**What I accepted**
-The reading that the app should stay small. My first instinct was to build a
-bigger app to look impressive. The brief actually says the opposite: "A clean,
-well-documented Core alone is a strong result."
-
-**What I changed**
-Nothing yet. This was a read of the brief, not a decision.
-
-## 2. Planning the order of work
+## 1. Planning the order of work
 
 **Prompt (summary)**
 Asked for a step-by-step approach to get through the whole exercise.
@@ -45,7 +26,7 @@ folder of empty files is worse than files that appear as the work is done, and
 it makes it easy to forget to fill one in. I create each document when I reach
 the work it describes.
 
-## 3. Choosing the stack
+## 2. Choosing the stack
 
 **Prompt (summary)**
 Asked which stack to use.
@@ -65,7 +46,7 @@ The brief lists SQLite as an acceptable option, and the requirement being
 tested is that persistence works and the setup runs, not that the database is
 impressive.
 
-## 4. Requirement analysis
+## 3. Requirement analysis
 
 **Prompt (summary)**
 Asked for the gaps and ambiguities in the brief that I had not spotted, rather
