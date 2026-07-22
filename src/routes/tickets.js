@@ -12,7 +12,8 @@ export const ticketRoutes = Router();
 // and there is no need to wrap these in try/catch.
 
 ticketRoutes.get('/', (req, res) => {
-  res.json(tickets.listTickets());
+  const { search, status } = req.query;
+  res.json(tickets.listTickets({ search, status }));
 });
 
 ticketRoutes.post('/', (req, res) => {
@@ -31,4 +32,9 @@ ticketRoutes.patch('/:id', (req, res) => {
 // cannot slip through the plain field path without the state machine check.
 ticketRoutes.post('/:id/status', (req, res) => {
   res.json(tickets.changeStatus(req.params.id, req.body.status));
+});
+
+// Nested under the ticket, because a comment has no meaning on its own.
+ticketRoutes.post('/:id/comments', (req, res) => {
+  res.status(201).json(tickets.addComment(req.params.id, req.body));
 });

@@ -357,3 +357,84 @@ A suggestion to return every validation error at once as an array. The API
 contract defines a single `field` on the error object, and the UI shows one
 message at a time. Returning a list would mean changing the contract and the
 error handler to solve a problem the frontend does not have.
+
+## 5. Comments, search and filter
+
+**Prompt**
+Add the comment endpoint, plus keyword search and status filter on the ticket
+list. Search covers title and description, case insensitive, and must work
+together with the status filter. Make sure a search term containing a quote or
+a percent sign cannot change the query. An empty result is an empty list, not
+an error.
+
+**AI response (summary)**
+`listTickets` rebuilt to take `search` and `status`, conditions combined with
+AND, terms bound as parameters. `addComment` on the service and a nested
+`POST /tickets/:id/comments` route. 32 new tests.
+
+**Result**
+
+```
+Test Files  4 passed (4)
+     Tests  130 passed (130)
+```
+
+**What I accepted**
+
+Leaving out `LOWER()` on both sides of the comparison. I had assumed
+case-insensitive search needed it. SQLite's `LIKE` is already case
+insensitive for ASCII, so the calls would have done nothing except stop any
+index ever being used. There are three tests covering `LOGIN`, `login` and
+`LoGiN`.
+
+**What I changed, and the part the prompt did not cover**
+
+The prompt asked that a quote or a percent sign "cannot change the query", and
+the generated code answered that by binding the term as a parameter. That is
+correct as far as it goes — it stops SQL injection.
+
+It does not stop `%` and `_` being read as wildcards. They are part of the
+LIKE pattern, not part of the SQL, so binding does nothing about them.
+
+I checked what that meant in practice:
+
+| Search term | Without escaping | With escaping |
+|-------------|------------------|---------------|
+| `l_gin` | matches "Slow login on the internal portal" | no match |
+| `%` | returns all 7 tickets | returns none |
+| `95%` | matches anything starting "95" | matches the literal "95%" |
+
+So a user searching for "95%" would get results that have nothing to do with
+what they typed, and it would look like the search was simply bad rather than
+broken.
+
+The fix escapes `\`, `%` and `_` in the term and adds `ESCAPE '\'` to the
+clause. The backslash has to be escaped first, or it would escape whatever the
+function adds after it.
+
+There are five tests for this, including one that searches for
+`'; DROP TABLE tickets; --` and then confirms the table is still there.
+
+**Worth recording:** the prompt named the risk I already knew about, the code
+handled exactly that, and the tests passed. Nothing was wrong. The gap was
+that "cannot change the query" and "means what the user typed" are two
+different problems, and only the first one was asked about.
+
+**What I added that was not suggested**
+
+Rejecting a status filter that is not a real status, with a 400. The generated
+version passed it through to the query, which returns an empty list — the same
+result as a filter that simply matched nothing. That hides a typo in a query
+string and makes it look like there is no data.
+
+**What I rejected**
+
+A suggestion to add pagination while the list endpoint was being rewritten. It
+is on the Stretch list and is not in acceptance-criteria.md. Six seeded
+tickets do not need it, and the project-context.md rule is that features
+outside the criteria do not get added.
+
+A suggestion to block comments on Closed and Cancelled tickets. That contradicts
+a decision already recorded in requirements-analysis.md: comments do not change
+ticket state, and blocking them would lose context on exactly the tickets
+people look back at. There are two tests asserting it is allowed.

@@ -13,16 +13,16 @@ Ticked when the work is done and checked, not when the code is written.
 - [x] API contract
 
 ## Backend
-- [ ] SQLite schema script
-- [ ] Seed data: 4 users, 6 tickets across all statuses, comments on two
-- [ ] State machine module
-- [ ] State machine tests, seen failing before they pass
-- [ ] Ticket endpoints
-- [ ] Status endpoint
-- [ ] Comment endpoint
-- [ ] Search and status filter
-- [ ] Validation on every input
-- [ ] Shared error handler
+- [x] SQLite schema script
+- [x] Seed data: 4 users, 6 tickets across all statuses, comments on two
+- [x] State machine module
+- [x] State machine tests, seen failing before they pass
+- [x] Ticket endpoints
+- [x] Status endpoint
+- [x] Comment endpoint
+- [x] Search and status filter
+- [x] Validation on every input
+- [x] Shared error handler
 
 ## Frontend
 - [ ] API client with error translation

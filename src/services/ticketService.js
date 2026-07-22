@@ -42,8 +42,48 @@ function findTicket(id) {
   return db.prepare(`${TICKET_SELECT} WHERE t.id = ?`).get(id);
 }
 
-export function listTickets() {
-  return db.prepare(`${TICKET_SELECT} ORDER BY t.createdAt DESC`).all();
+/**
+ * `%` and `_` are wildcards inside a LIKE pattern.
+ *
+ * Binding the search term as a parameter stops it changing the SQL, but it
+ * does not stop those two characters being read as wildcards. Without this,
+ * searching for "100%" quietly matches every ticket starting with "100", and
+ * searching for "_" matches everything. Escaping them makes a search for a
+ * literal percent sign find a literal percent sign.
+ *
+ * The backslash itself is escaped first, otherwise it would escape whatever
+ * this function adds after it.
+ */
+const escapeLikePattern = (term) => term.replace(/[\\%_]/g, (char) => `\\${char}`);
+
+export function listTickets({ search, status } = {}) {
+  const conditions = [];
+  const params = [];
+
+  if (status != null && status !== '') {
+    // Rejected rather than ignored. A filter for a status that does not exist
+    // would return an empty list, which looks the same as "no tickets match"
+    // and hides the mistake.
+    if (!isValidStatus(status)) {
+      throw validationError(`'${status}' is not a valid status`, 'status');
+    }
+    conditions.push('t.status = ?');
+    params.push(status);
+  }
+
+  const term = typeof search === 'string' ? search.trim() : '';
+  if (term !== '') {
+    // SQLite's LIKE is case insensitive for ASCII by default, which is what
+    // the search needs. No LOWER() call is required.
+    conditions.push(`(t.title LIKE ? ESCAPE '\\' OR t.description LIKE ? ESCAPE '\\')`);
+    const pattern = `%${escapeLikePattern(term)}%`;
+    params.push(pattern, pattern);
+  }
+
+  // Conditions combine with AND, so search and status filter narrow together.
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  return db.prepare(`${TICKET_SELECT} ${where} ORDER BY t.createdAt DESC`).all(...params);
 }
 
 export function getTicket(id) {
@@ -136,6 +176,35 @@ export function updateTicket(id, changes = {}) {
     .run(...values, now(), id);
 
   return getTicket(id);
+}
+
+export function addComment(ticketId, input = {}) {
+  if (!findTicket(ticketId)) throw notFound('Ticket');
+
+  const message = requiredText(input.message, 'message', LIMITS.message);
+  const createdBy = requiredId(input.createdBy, 'createdBy');
+
+  if (!userExists(createdBy)) {
+    throw validationError('Comment author does not exist', 'createdBy');
+  }
+
+  // Comments are allowed on tickets in any status, including Closed and
+  // Cancelled. Blocking them would hide useful context, and a comment does
+  // not change the ticket's state. See requirements-analysis.md.
+  const result = db
+    .prepare(
+      'INSERT INTO comments (ticketId, message, createdBy, createdAt) VALUES (?, ?, ?, ?)',
+    )
+    .run(ticketId, message, createdBy, now());
+
+  return db
+    .prepare(
+      `SELECT c.id, c.message, c.createdBy, u.name AS createdByName, c.createdAt
+       FROM comments c
+       LEFT JOIN users u ON u.id = c.createdBy
+       WHERE c.id = ?`,
+    )
+    .get(result.lastInsertRowid);
 }
 
 export function changeStatus(id, nextStatus) {
