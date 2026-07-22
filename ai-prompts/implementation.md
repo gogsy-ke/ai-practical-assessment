@@ -178,3 +178,91 @@ and for a final status:
 
 The first version returned "Invalid status transition" for everything, which
 tells the user nothing about what to do next.
+
+## 3. Ticket endpoints
+
+**Prompt**
+Build the ticket endpoints from api-contract.md. Keep the status change on its
+own endpoint, separate from the general update. Do not put the transition rule
+in the route handler — call the state machine module. The status endpoint must
+read the current status from the database rather than trusting anything the
+client sent.
+
+**AI response (summary)**
+`src/errors.js` with one `AppError` type and a shared handler,
+`src/services/ticketService.js` with the rules, `src/routes/tickets.js` and
+`src/routes/users.js` for HTTP, and `src/app.js` wiring them together. Plus 25
+integration tests in `tests/api.status.test.js`.
+
+**Result**
+
+```
+Test Files  2 passed (2)
+     Tests  71 passed (71)
+```
+
+**What I accepted**
+
+Rejecting a `status` key in `PATCH /tickets/:id` instead of ignoring it. My
+first thought was to strip unknown fields quietly. That is worse: a client
+that thinks it changed the status gets a 200 back and no indication that
+nothing happened. There is a test for this, and a second one confirming the
+status really did not change.
+
+Checking `isValidStatus` before `canTransition` in `changeStatus`. The order
+matters, because it decides which error the caller gets. `"Deleted"` should be
+a 400 about malformed input, not a 409 about a conflict, and checking the
+transition first would produce the wrong one.
+
+**What I changed: three layers became two**
+
+design-notes.md planned `routes/`, `services/` and a `db/` layer holding the
+queries. I dropped `db/` while building it.
+
+The backend is about ten queries and each one is used by exactly one service
+function. The `db/` layer would have been a file of one-line wrappers, each
+called from one place. Following a request would mean reading three files
+instead of two, and the extra file would never contain a decision.
+
+The point of the layering was to keep the transition rule out of the route
+handlers, and that holds with two layers. Splitting the queries out again
+protects nothing.
+
+I updated design-notes.md rather than leaving the document describing a
+structure that does not exist. The section explains the change and what would
+make the third layer worth adding later.
+
+**What I rejected**
+
+Wrapping every route handler in try/catch to forward errors. `better-sqlite3`
+is synchronous, so a throw inside a handler is caught by Express on its own.
+The try/catch would have been five identical blocks that do nothing.
+
+An `asyncHandler` helper wrapper, suggested for the same reason. Nothing in
+this codebase is async, so it would wrap synchronous functions in promise
+handling that never runs.
+
+**What I added that was not suggested**
+
+Two tests for concurrent status changes. The generated tests covered the rule
+but always from a clean ticket. The case I wanted proof of is two people
+pressing a button at once: the second request has to be judged against the
+status the first one left behind. The second test sends the same close twice
+and expects the second to come back 409 with "final" in the message.
+
+A test that `updatedAt` actually changes on a status change, and one that the
+ticket is unchanged after a rejection. Both check that the endpoint did what
+it said rather than only what it returned.
+
+**What I verified by hand, outside the tests**
+
+Ran the server and used curl against every endpoint. Two things worth
+recording:
+
+The 409 body reads:
+
+> Cannot move from In Progress to Closed. Allowed from In Progress: Resolved, Cancelled
+
+A ticket created through the API came back with **id 7**, not id 1. That is
+the `sqlite_sequence` fix from prompt 8 holding up in the real request path,
+not just in the seed script.

@@ -16,13 +16,30 @@ Inside the backend:
 
 ```
 routes/      HTTP only. Read the request, call a service, send the response.
-services/    Business rules. This is where the state machine is used.
-db/          Queries. No rules here.
+services/    Business rules and the queries they need.
 ```
 
 The reason for splitting services out is the state machine. If the transition
 rule sits in a route handler, it can only be tested by making HTTP requests,
 and a second route could easily be added later that forgets the rule.
+
+### Changed during implementation: two layers, not three
+
+This section originally planned a third layer, `db/`, holding the queries with
+no rules in it. Building it showed that was not worth it.
+
+The whole backend is about ten queries, and every one of them is used by
+exactly one service function. A `db/` layer would have been a file of
+one-line wrappers, each called from a single place. That is indirection with
+nothing behind it: to follow a request you would read three files instead of
+two, and the extra file would never contain a decision.
+
+The rule the layering exists to protect is that the transition check lives in
+`stateMachine.js` and nothing else decides it. That holds with two layers.
+Splitting the queries out further protects nothing.
+
+If the queries were shared across several services, or a second storage
+backend appeared, this would be worth revisiting.
 
 ## The Status State Machine
 
