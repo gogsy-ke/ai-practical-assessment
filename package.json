@@ -10,13 +10,15 @@
     "dev:api": "node src/server.js",
     "dev:web": "npm --prefix web run dev",
     "start": "node src/server.js",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "better-sqlite3": "^11.5.0",
     "express": "^4.21.1"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.9",
     "supertest": "^7.0.0",
     "vitest": "^2.1.5"
   }

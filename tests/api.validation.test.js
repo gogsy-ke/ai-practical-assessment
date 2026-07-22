@@ -199,3 +199,65 @@ describe('error shape', () => {
     expect(JSON.stringify(res.body)).not.toContain('at ');
   });
 });
+
+// The three groups below were added after a coverage run showed them
+// untested. Each one is a path the app actually uses.
+describe('gaps found by coverage', () => {
+  // GET /api/users had no test at all, despite the frontend depending on it
+  // for both the assignee dropdown and the "acting as" selector.
+  describe('users endpoint', () => {
+    it('returns the seeded users', async () => {
+      const res = await request(app).get('/api/users');
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveLength(4);
+    });
+
+    it('returns them sorted by name', async () => {
+      const names = (await request(app).get('/api/users')).body.map((u) => u.name);
+      expect([...names].sort()).toEqual(names);
+    });
+
+    it('includes the fields the UI needs', async () => {
+      const [user] = (await request(app).get('/api/users')).body;
+      expect(user).toHaveProperty('id');
+      expect(user).toHaveProperty('name');
+      expect(user).toHaveProperty('role');
+    });
+  });
+
+  // Create checked this; update did not. The two paths share a validator but
+  // reach it separately, so only one of them was proven.
+  describe('reassigning to a user who does not exist', () => {
+    it('is rejected on update, as it is on create', async () => {
+      const res = await request(app).patch('/api/tickets/1').send({ assignedTo: 9999 });
+      expect(res.status).toBe(400);
+      expect(res.body.error.field).toBe('assignedTo');
+    });
+
+    it('leaves the existing assignee in place', async () => {
+      const before = (await request(app).get('/api/tickets/1')).body.assignedTo;
+      await request(app).patch('/api/tickets/1').send({ assignedTo: 9999 });
+      expect((await request(app).get('/api/tickets/1')).body.assignedTo).toBe(before);
+    });
+  });
+
+  // optionalText was only ever exercised with valid text or nothing at all.
+  describe('description validation', () => {
+    it('rejects a description that is not text', async () => {
+      const res = await createTicket({ ...valid, description: 42 });
+      expect(res.status).toBe(400);
+      expect(res.body.error.field).toBe('description');
+    });
+
+    it('rejects a description over the limit', async () => {
+      const res = await createTicket({ ...valid, description: 'a'.repeat(5001) });
+      expect(res.status).toBe(400);
+    });
+
+    it('treats a whitespace-only description as absent', async () => {
+      const res = await createTicket({ ...valid, description: '   ' });
+      expect(res.status).toBe(201);
+      expect(res.body.description).toBeNull();
+    });
+  });
+});
