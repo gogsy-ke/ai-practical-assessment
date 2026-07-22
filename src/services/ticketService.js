@@ -105,7 +105,12 @@ export function getTicket(id) {
   return { ...ticket, allowedTransitions: allowedTransitions(ticket.status), comments };
 }
 
-export function createTicket(input = {}) {
+export function createTicket(rawInput) {
+  // `input = {}` would not be enough here. A default parameter only fills in
+  // for undefined, and a request body of `null` parses to null, which reaches
+  // the property reads below and throws.
+  const input = rawInput ?? {};
+
   // Shape and type first, then existence. A bad type would otherwise reach the
   // database driver, which throws in a way that surfaces as a 500 rather than
   // as the 400 this really is.
@@ -146,7 +151,9 @@ const UPDATABLE = {
   assignedTo: (v) => optionalId(v, 'assignedTo'),
 };
 
-export function updateTicket(id, changes = {}) {
+export function updateTicket(id, rawChanges) {
+  const changes = rawChanges ?? {};
+
   if (!findTicket(id)) throw notFound('Ticket');
 
   // Rejected rather than ignored. A client that thinks it changed the status
@@ -178,7 +185,9 @@ export function updateTicket(id, changes = {}) {
   return getTicket(id);
 }
 
-export function addComment(ticketId, input = {}) {
+export function addComment(ticketId, rawInput) {
+  const input = rawInput ?? {};
+
   if (!findTicket(ticketId)) throw notFound('Ticket');
 
   const message = requiredText(input.message, 'message', LIMITS.message);

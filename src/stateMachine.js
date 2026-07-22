@@ -32,7 +32,12 @@ export const STATUSES = Object.freeze(Object.keys(TRANSITIONS));
  * because guessing what the caller meant hides a bug in the caller.
  */
 export function isValidStatus(status) {
-  return Object.hasOwn(TRANSITIONS, status);
+  // The string check is not redundant. Property lookup coerces its key, so
+  // Object.hasOwn(TRANSITIONS, ['Open']) is true — the array becomes the
+  // string 'Open'. Without this, a JSON array reaches the transition check
+  // and is rejected for the wrong reason, with a message that reads as if a
+  // plain string had been sent.
+  return typeof status === 'string' && Object.hasOwn(TRANSITIONS, status);
 }
 
 /**

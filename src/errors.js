@@ -34,6 +34,20 @@ export function errorHandler(err, req, res, next) {
     });
   }
 
+  // express.json() throws a SyntaxError on a body it cannot parse. It reaches
+  // here as an unexpected error and would be reported as a 500, blaming the
+  // server for a request the client sent wrong. body-parser tags it, so it
+  // can be turned back into the 400 it really is.
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Request body is not valid JSON',
+        field: null,
+      },
+    });
+  }
+
   // Anything reaching here was not anticipated. Log it in full, but do not
   // send internals to the client.
   console.error(err);

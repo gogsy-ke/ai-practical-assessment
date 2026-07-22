@@ -199,3 +199,190 @@ actual problem is more useful.
 A comment that states a reason is a claim, and an unchecked claim in a comment
 is worse than no comment — the next person has no reason to doubt it. This one
 took two minutes to check and was wrong.
+
+---
+
+## How issues 4 to 6 were found
+
+Issues 1 to 3 turned up while building. With the app finished and 130 tests
+passing, I went looking on purpose instead of waiting for something to break.
+
+The tests all send well-formed requests, because I wrote them alongside code
+that expected well-formed requests. So I wrote a script that sends the API
+things it was never designed for — broken JSON, wrong types, arrays where
+strings belong, odd ids — and watched both the status codes and the server's
+stderr.
+
+The stderr was the useful part. Anything printed there means a request reached
+the `INTERNAL_ERROR` branch, which is the branch for things I did not
+anticipate. It printed **34 lines**. That is three separate bugs, none of which
+any test caught.
+
+---
+
+## Issue 4 — Malformed JSON returns 500
+
+### Problem
+
+```
+POST /api/tickets   body: {"title": "broken
+→ 500  {"error":{"code":"INTERNAL_ERROR","message":"Something went wrong"}}
+```
+
+A client sending a broken request body is told the server broke. That is the
+wrong party blamed, and a 500 tells the caller to retry when retrying will
+never help.
+
+### How I investigated
+
+The stderr showed the real error:
+
+```
+SyntaxError: Unterminated string in JSON at position 17
+    at JSON.parse (<anonymous>)
+    at parse (.../body-parser/lib/types/json.js:96:19)
+```
+
+So the throw comes from `express.json()`, before any of my code runs. It
+reaches `errorHandler`, is not an `AppError`, and falls through to the
+catch-all 500.
+
+### How AI helped
+
+I asked how to tell a body-parser failure apart from a genuine server fault,
+since both arrive at the same handler as a plain `Error`.
+
+body-parser tags its errors: `err.type === 'entity.parse.failed'`, and it sets
+`err.status` to 400. I checked that on a real thrown error rather than
+trusting it.
+
+### Final fix
+
+A branch in `errorHandler` before the 500 catch-all, turning a parse failure
+into a 400 with `code: VALIDATION_ERROR`.
+
+### What I validated
+
+The response is now a 400, and the parser's stack trace does not reach the
+client. There is a test asserting the body contains neither `body-parser` nor
+`at `.
+
+---
+
+## Issue 5 — A request body of `null` crashes the service
+
+### Problem
+
+```
+POST /api/tickets   body: null
+→ 500
+```
+
+### How I investigated
+
+The guard looked like it covered this:
+
+```js
+export function createTicket(input = {}) {
+  const title = requiredText(input.title, ...);
+```
+
+A default parameter looked like enough. It is not:
+
+```js
+f(undefined)  // default applies
+f(null)       // TypeError: Cannot read properties of null
+```
+
+**Default parameters only fill in for `undefined`.** `null` is a value, so it
+is passed through, and the first property read throws.
+
+### Final fix
+
+`const input = rawInput ?? {};` in `createTicket`, `updateTicket` and
+`addComment`. `??` treats `null` and `undefined` the same way, which is what
+was meant in the first place.
+
+### Something I have to be honest about here
+
+After fixing it I re-ran the probe, and the `null` body now returns 400 —
+but with the message "Request body is not valid JSON", which is the *issue 4*
+fix responding, not this one.
+
+`express.json()` runs in strict mode by default and only accepts an object or
+an array at the top level, so a body of `null` is rejected before my service
+is ever called. Over HTTP, the `?? {}` guard is never reached.
+
+So this fix does not change any behaviour a user can see. It is still worth
+keeping — the service functions are exported and the guard is what makes them
+safe to call directly — but I would be overstating it to list this as a bug
+the API had. The real fix for the HTTP path was issue 4.
+
+I found this out by re-running the probe rather than assuming my fix was the
+reason the result changed.
+
+---
+
+## Issue 6 — An array as a status is rejected for the wrong reason
+
+### Problem
+
+```
+POST /api/tickets/1/status   body: {"status": ["In Progress"]}
+→ 409  "Cannot move from Open to Open. Allowed from Open: In Progress, Cancelled"
+```
+
+The request was correctly refused, so nothing broke. But the diagnosis is
+wrong twice over: it is reported as a conflict with the ticket's state when it
+is really malformed input, and the message says the caller sent `Open` when
+they sent an array.
+
+### How I investigated
+
+`isValidStatus` was:
+
+```js
+return Object.hasOwn(TRANSITIONS, status);
+```
+
+Checked what that does with an array:
+
+```js
+Object.hasOwn({'Open': 1}, ['Open'])   // true
+String(['Open'])                       // 'Open'
+`${['Open']}`                          // 'Open'
+```
+
+**Property lookup coerces its key to a string.** A one-element array becomes
+exactly that element's text, so `['Open']` passes as a real status. It then
+failed `canTransition`, because `['In Progress'] !== 'In Progress'` inside
+`includes`, which produced the 409. The same coercion in the template literal
+is why the message read as if a plain string had been sent.
+
+### Final fix
+
+```js
+return typeof status === 'string' && Object.hasOwn(TRANSITIONS, status);
+```
+
+Now a 400 saying the value is not a valid status, which is what it is.
+
+### What I validated
+
+That the ticket is genuinely unchanged afterwards, not merely that the status
+code improved. The behaviour was already safe; only the diagnosis was wrong,
+and a fix that changed the message while letting the write through would have
+been much worse than the bug.
+
+### What I took from it
+
+This one would never have been reported. Nothing crashed, no data was
+corrupted, and the request was refused. It would have surfaced as a support
+ticket saying "the error message makes no sense", long after anyone could
+connect it to a type check.
+
+It is also the third bug in this project caused by JavaScript coercing a type
+quietly — after `Number(true) === 1` in issue 2, and `null` slipping past a
+default parameter in issue 5. That is a pattern rather than three
+coincidences, and it is the thing I would look for first on the next
+JavaScript project.
