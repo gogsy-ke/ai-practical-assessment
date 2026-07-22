@@ -1,13 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api.js';
+import { formatDateTime } from '../formatDate.js';
 import CommentSection from './CommentSection.jsx';
 
-const formatDateTime = (iso) =>
-  new Date(iso).toLocaleString(undefined, {
-    day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
-  });
-
-export default function TicketDetail({ ticketId, users, currentUserId, onBack, onChanged }) {
+export default function TicketDetail({ ticketId, users, priorities, currentUserId, onBack, onChanged }) {
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -121,9 +117,7 @@ export default function TicketDetail({ ticketId, users, currentUserId, onBack, o
               <label className="field">
                 Priority
                 <select value={form.priority} onChange={set('priority')}>
-                  <option>Low</option>
-                  <option>Medium</option>
-                  <option>High</option>
+                  {priorities.map((p) => <option key={p}>{p}</option>)}
                 </select>
               </label>
 

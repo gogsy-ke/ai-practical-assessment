@@ -1,6 +1,7 @@
 import express from 'express';
 import { ticketRoutes } from './routes/tickets.js';
 import { userRoutes } from './routes/users.js';
+import { metaRoutes } from './routes/meta.js';
 import { errorHandler, notFound } from './errors.js';
 
 export function createApp() {
@@ -10,6 +11,7 @@ export function createApp() {
 
   app.use('/api/tickets', ticketRoutes);
   app.use('/api/users', userRoutes);
+  app.use('/api/meta', metaRoutes);
 
   // An unknown path returns the same error shape as everything else, rather
   // than Express's default HTML page.

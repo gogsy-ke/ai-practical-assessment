@@ -62,6 +62,8 @@ const query = (params) => {
 };
 
 export const api = {
+  getMeta: () => request('/meta'),
+
   listUsers: () => request('/users'),
 
   listTickets: ({ search, status } = {}) => request(`/tickets${query({ search, status })}`),

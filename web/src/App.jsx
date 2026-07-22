@@ -10,6 +10,9 @@ import CreateTicketForm from './components/CreateTicketForm.jsx';
 // known limitation in the README.
 export default function App() {
   const [users, setUsers] = useState([]);
+  // Status and priority lists come from the API rather than being written out
+  // here. See code-review-notes.md, findings 1 and 2.
+  const [meta, setMeta] = useState({ statuses: [], priorities: [] });
   const [currentUserId, setCurrentUserId] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -23,10 +26,10 @@ export default function App() {
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    api
-      .listUsers()
-      .then((list) => {
+    Promise.all([api.listUsers(), api.getMeta()])
+      .then(([list, metaData]) => {
         setUsers(list);
+        setMeta(metaData);
         setCurrentUserId(list[0]?.id ?? null);
       })
       .catch((err) => setError(err.message))
@@ -70,6 +73,7 @@ export default function App() {
           <TicketDetail
             ticketId={openTicketId}
             users={users}
+            priorities={meta.priorities}
             currentUserId={currentUserId}
             onBack={() => setOpenTicketId(null)}
             // The list is stale once a ticket changes, so it refetches when
@@ -87,6 +91,7 @@ export default function App() {
             {creating && (
               <CreateTicketForm
                 users={users}
+                priorities={meta.priorities}
                 currentUserId={currentUserId}
                 onCancel={() => setCreating(false)}
                 onCreated={(ticket) => {
@@ -97,7 +102,7 @@ export default function App() {
               />
             )}
 
-            <TicketList reloadKey={reloadKey} onOpen={setOpenTicketId} />
+            <TicketList reloadKey={reloadKey} statuses={meta.statuses} onOpen={setOpenTicketId} />
           </>
         )}
       </main>

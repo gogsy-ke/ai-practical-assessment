@@ -3,7 +3,7 @@ import { api, ApiError } from '../api.js';
 
 const EMPTY = { title: '', description: '', priority: 'Medium', assignedTo: '' };
 
-export default function CreateTicketForm({ users, currentUserId, onCreated, onCancel }) {
+export default function CreateTicketForm({ users, priorities, currentUserId, onCreated, onCancel }) {
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -64,9 +64,7 @@ export default function CreateTicketForm({ users, currentUserId, onCreated, onCa
         <label className="field">
           Priority
           <select className={invalid('priority')} value={form.priority} onChange={set('priority')}>
-            <option>Low</option>
-            <option>Medium</option>
-            <option>High</option>
+            {priorities.map((p) => <option key={p}>{p}</option>)}
           </select>
         </label>
 

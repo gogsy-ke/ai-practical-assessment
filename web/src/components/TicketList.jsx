@@ -1,12 +1,8 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api.js';
+import { formatDate } from '../formatDate.js';
 
-const STATUSES = ['Open', 'In Progress', 'Resolved', 'Closed', 'Cancelled'];
-
-const formatDate = (iso) =>
-  new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
-
-export default function TicketList({ onOpen, reloadKey }) {
+export default function TicketList({ onOpen, reloadKey, statuses }) {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [tickets, setTickets] = useState([]);
@@ -63,7 +59,7 @@ export default function TicketList({ onOpen, reloadKey }) {
 
         <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Filter by status">
           <option value="">All statuses</option>
-          {STATUSES.map((s) => (
+          {statuses.map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
         </select>

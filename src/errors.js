@@ -26,8 +26,13 @@ export const invalidTransition = (message) =>
   new AppError('INVALID_TRANSITION', message, { status: 409, field: 'status' });
 
 // Must be registered last, after every route.
-// eslint-disable-next-line no-unused-vars
 export function errorHandler(err, req, res, next) {
+  // If a response has already started, the status and headers are gone and
+  // writing a second body throws inside the handler — turning one failure
+  // into a crash with a misleading stack. Express's default handler closes
+  // the connection, which is the only thing left to do.
+  if (res.headersSent) return next(err);
+
   if (err instanceof AppError) {
     return res.status(err.status).json({
       error: { code: err.code, message: err.message, field: err.field },

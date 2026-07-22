@@ -158,3 +158,34 @@ describe('unusual ids and query parameters', () => {
     expect(res.body).toEqual([]);
   });
 });
+
+describe('meta endpoint', () => {
+  // Added during code review. The frontend had its own copies of both lists,
+  // so adding a status to the backend would leave the filter silently missing
+  // it. See code-review-notes.md, findings 1 and 2.
+  it('serves the status and priority lists', async () => {
+    const res = await request(app).get('/api/meta');
+    expect(res.status).toBe(200);
+    expect(res.body.statuses).toEqual([
+      'Open', 'In Progress', 'Resolved', 'Closed', 'Cancelled',
+    ]);
+    expect(res.body.priorities).toEqual(['Low', 'Medium', 'High']);
+  });
+
+  it('agrees with what the endpoints actually accept', async () => {
+    const { statuses, priorities } = (await request(app).get('/api/meta')).body;
+
+    // Every advertised priority must be accepted by create.
+    for (const priority of priorities) {
+      const res = await request(app)
+        .post('/api/tickets')
+        .send({ title: `Priority ${priority}`, priority, createdBy: 1 });
+      expect(res.status).toBe(201);
+    }
+
+    // Every advertised status must be accepted by the filter.
+    for (const status of statuses) {
+      expect((await request(app).get(`/api/tickets?status=${encodeURIComponent(status)}`)).status).toBe(200);
+    }
+  });
+});

@@ -1,10 +1,6 @@
 import { useState } from 'react';
 import { api } from '../api.js';
-
-const formatDateTime = (iso) =>
-  new Date(iso).toLocaleString(undefined, {
-    day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
-  });
+import { formatDateTime } from '../formatDate.js';
 
 export default function CommentSection({ ticketId, comments, currentUserId, onAdded }) {
   const [message, setMessage] = useState('');
