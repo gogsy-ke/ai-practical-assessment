@@ -33,16 +33,16 @@ Ticked when the work is done and checked, not when the code is written.
 - [x] Loading, empty and error states
 
 ## Verify
-- [ ] Full test run passing
-- [ ] Clean machine setup test: delete node_modules and the db file, run README
-- [ ] Restart test: confirm data survives
-- [ ] Code review pass
-- [ ] Fixes from review
+- [x] Full test run passing
+- [x] Clean machine setup test: delete node_modules and the db file, run README
+- [x] Restart test: confirm data survives
+- [x] Code review pass
+- [x] Fixes from review
 
 ## Documents finished last
-- [ ] test-strategy.md and test-results.md
-- [ ] debugging-notes.md, written as bugs happen
-- [ ] code-review-notes.md and review-fixes.md
-- [ ] README.md
-- [ ] tool-workflow.md
-- [ ] reflection.md, pr-description.md, final-ai-usage-summary.md
+- [x] test-strategy.md and test-results.md
+- [x] debugging-notes.md, written as bugs happen
+- [x] code-review-notes.md and review-fixes.md
+- [x] README.md
+- [x] tool-workflow.md
+- [x] reflection.md, pr-description.md, final-ai-usage-summary.md
