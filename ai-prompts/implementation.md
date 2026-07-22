@@ -438,3 +438,72 @@ A suggestion to block comments on Closed and Cancelled tickets. That contradicts
 a decision already recorded in requirements-analysis.md: comments do not change
 ticket state, and blocking them would lose context on exactly the tickets
 people look back at. There are two tests asserting it is allowed.
+
+## 6. Frontend setup and API client
+
+**Prompt**
+Set up the React frontend with a single API client module. Every request goes
+through it, and it is the only place that knows about the backend error shape,
+so components only deal with plain messages. Keep it plain — no state
+management library, and no new dependencies unless you can justify one.
+
+**AI response (summary)**
+Vite and React in `web/`, with `web/src/api.js` holding an `ApiError` class and
+one `request` helper that every call goes through. A dev server proxy sends
+`/api` to the backend.
+
+**What I accepted**
+
+The proxy in `vite.config.js` instead of a base URL in the frontend code. It
+means no host is hardcoded anywhere in the React app and there is no CORS
+setup on the backend to get wrong. One line of config replaces both.
+
+Catching the `fetch` call itself, separately from checking the status. This is
+the part I would have got wrong. `fetch` only rejects when the request could
+not be made at all — a 400 or a 500 comes back as a normally resolved
+promise. Without the try/catch, a backend that is not running surfaces as an
+unhandled `TypeError: Failed to fetch`, which tells a user nothing. It now
+says "Cannot reach the server. Is the API running on port 3001?".
+
+**What I added that was not suggested**
+
+Letting `response.json()` fail without hiding the status code. The first
+version assumed every error body is the API's JSON shape. That holds for
+errors the API raises, but not for a proxy error or a crash before the handler
+runs, which can return HTML. Parsing that throws, and the throw would replace
+a useful 502 with a JSON parse error. It now falls back to a message built
+from the status code.
+
+Dropping empty values when building the query string. Without it a cleared
+search box sends `?search=&status=`, and the backend would need a special case
+for empty strings that it should not have to care about.
+
+**What I rejected**
+
+React Router. There are two views, list and detail, and one piece of state
+decides which is shown. A router would add a dependency and a layer of
+configuration to replace a single `useState`. Noted in reflection.md as the
+first thing to add if the app grew more screens.
+
+A state management library. Every screen loads its own data and there is no
+shared state beyond the selected user. There is nothing for it to manage.
+
+`concurrently`, suggested so one command could start both servers. Two npm
+scripts and a line in the README do the same thing without a dependency, and
+the README has to explain how to run it either way.
+
+**What I verified**
+
+Started both servers and checked the proxy end to end rather than assuming it
+was wired up:
+
+| Check | Result |
+|-------|--------|
+| Vite serves the page | `<title>Support Tickets</title>` |
+| `/api/users` through the proxy | returns the four seeded users |
+| An error through the proxy | `404` with the API's error shape intact |
+| Production build | 32 modules, builds clean |
+
+The third one mattered most. If the proxy had mangled error responses, every
+error message in the UI would have been wrong while the happy path looked
+fine.

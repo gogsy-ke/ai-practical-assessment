@@ -5,7 +5,10 @@
   "type": "module",
   "description": "Support ticket management system with an enforced status state machine",
   "scripts": {
+    "setup": "npm install && npm --prefix web install && npm run db:setup",
     "db:setup": "node src/db-setup.js",
+    "dev:api": "node src/server.js",
+    "dev:web": "npm --prefix web run dev",
     "start": "node src/server.js",
     "test": "vitest run"
   },
